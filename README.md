@@ -1,8 +1,8 @@
 # Reconnect
 Rapid Evaluation of Multispecies Connectivity (Reconnect) R-tool.
 
-This tool enables the rapid computation of connectivity indicators simultaneously for multiple species dispersal and habitat needs, across large regions of interest. Input data need to be in gridded/raster (e.g. '.tif') or shape file (e.g. '.shp') format and describe species habitat, land-cover, or protected area distribution. Cost distances can be computed in case a resistance raster layer is given.
-The Reconnect R-tool application is demonstrated in a recent study available on bioRxiv: [Rapid evaluation of habitat connectivity change to safeguard multispecies persistence in human-transformed landscapes](https://doi.org/10.1101/2023.11.23.568419). This work was developed by Jacqueline Oehri as part of a postdoc project collaboration of McGill University and the environmental research firm [Habitat](https://www.habitat-nature.com/) co-supervised by [Dr. Andrew Gonzalez](https://www.thegonzalezlab.org/) and [Dr. Brian Leung](https://leung-lab.github.io/leunglab/). Have a look at the [Reconnect documentation](https://github.com/oehrij/Reconnect/blob/main/doc/Reconnect_approach.pdf) for a more detailed description.
+This tool enables the rapid computation of connectivity indicators simultaneously for multiple species dispersal and habitat needs, across large regions of interest. Input data need to be in raster or shape file format and describe species habitat, land-cover, or protected area distribution. Cost distances can be computed in case a resistance raster layer is given.
+The Reconnect R-tool application is demonstrated in a recent study: [Rapid evaluation of habitat connectivity change to safeguard multispecies persistence in human-transformed landscapes](https://doi.org/10.1101/2023.11.23.568419). This work was developed as part of a postdoc project collaboration of McGill University and the environmental research firm [Habitat](https://www.habitat-nature.com/) co-supervised by [Dr. Andrew Gonzalez](https://www.thegonzalezlab.org/) and [Dr. Brian Leung](https://leung-lab.github.io/leunglab/). Have a look at the [Reconnect documentation](https://github.com/oehrij/Reconnect/blob/main/doc/Reconnect_approach.pdf) for a more detailed description.
 
 ![Slide2](https://github.com/oehrij/Reconnect/assets/78751500/aff1c93e-cf18-4d70-8393-c9edc3354cf3)
 
@@ -12,26 +12,26 @@ The Reconnect R-tool will soon be available. Please write me an email in case of
 
 
 ## Reconnect_functions
-Reconnect - core, wrapper and summary functions, as well as general functions for processing geographic data. See [REMC documentation](https://github.com/oehrij/Reconnect/blob/main/doc/Reconnect_approach.pdf) for more details.
+Reconnect - core, wrapper and summary functions, as well as general functions for processing geographic data.
 
 ![Slide3](https://github.com/oehrij/Reconnect/assets/78751500/3745bdf7-de6c-4b7a-8b4f-4e149da0f675)
 
 
 ## CONN_functions
-Functions to compute a set of complementary connectivity-indicators at pixel-, patch- and landscape-level that were selected based on a literature review by Eluna Touratier and Jacqueline Oehri, within the framework of the Postdoc project: "Linking multispecies connectivity modelling and ecosystem services in the context of landscape urbanization" (see above). Type ```help(package = 'Reconnect', help_type = 'html')``` for a demonstration of the functions in the 'CONN_MPC_vignette'. See [REMC documentation](https://github.com/oehrij/Reconnect/blob/main/doc/Reconnect_approach.pdf) for more details.
+Functions to compute a set of complementary connectivity-indicators at pixel-, patch- and landscape-level that were selected based on a literature review by Eluna Touratier and Jacqueline Oehri, within the framework of the Postdoc project: "Linking multispecies connectivity modelling and ecosystem services in the context of landscape urbanization" (see above). Type ```help(package = 'Reconnect', help_type = 'html')``` for a demonstration of the functions in the 'CONN_MPC_vignette'.
 
 ![Slide4](https://github.com/oehrij/Reconnect/assets/78751500/16dd39f4-f783-409a-92ae-284b2bfb5480)
 
 
 ## MPC_functions
 The MPC_functions can derive metapopulation capacity (MPC) and -related indices from binary habitat distribution maps (shapefile, raster file or patch-area vector/patch-distance matrix). They additionally enable the individual setting of species-specific parameters, such as dispersal capacity and distance-decay function. 
-The implemented MPC formula is based on [Hanski and Ovaskainen 2000](https://doi.org/10.1038/35008063), [Hanski 1994](151-162.https://doi.org/10.2307/5591), as well as the modifications suggested by [Schnell et al. 2013](https://doi.org/10.1111/cobi.12047). The R-code is largely based on the R-codes of [Huang et al. 2020](https://doi.org/10.1111/cobi.13364) and [Strimas-Mackey & Brodie 2018](https://doi.org/10.1002/eap.1739). Have a look at the [Full MPC report](https://oehrij.shinyapps.io/MPC_report/) and the [REMC documentation](https://github.com/oehrij/Reconnect/blob/main/doc/Reconnect_approach.pdf) for more details.
+The implemented MPC formula is based on [Hanski and Ovaskainen 2000](https://doi.org/10.1038/35008063), [Hanski 1994](151-162.https://doi.org/10.2307/5591), as well as the modifications suggested by [Schnell et al. 2013](https://doi.org/10.1111/cobi.12047). The R-code is largely based on the R-codes of [Huang et al. 2020](https://doi.org/10.1111/cobi.13364) and [Strimas-Mackey & Brodie 2018](https://doi.org/10.1002/eap.1739). Have a look at the [Full MPC report](https://oehrij.shinyapps.io/MPC_report/) for more details.
 
 ![Slide6](https://github.com/oehrij/Reconnect/assets/78751500/c2deca0f-f0bc-410f-81e3-094ceb80544d)
 
 
 ## NLMC_functions
-Functions for generating simulated and neutral landscapes. See [REMC documentation](https://github.com/oehrij/Reconnect/blob/main/doc/Reconnect_approach.pdf) for more details.
+Functions for generating simulated and neutral landscapes.
 
 ![Slide7](https://github.com/oehrij/Reconnect/assets/78751500/91203fd8-d2e2-4348-9317-09056ccaa183)
 
