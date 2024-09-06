@@ -7,14 +7,24 @@ The Reconnect R-tool application is demonstrated in a recent study: [Rapid evalu
 ![Slide2](https://github.com/oehrij/Reconnect/assets/78751500/aff1c93e-cf18-4d70-8393-c9edc3354cf3)
 
 
-## Access
-The Reconnect R-tool will soon be available. Please write me an email in case of questions at: jacqueline.oehri@gmail.com
+## Installation 
+```r
+#install_packages("devtools")
+library(devtools)
+install_github("oehrij/Reconnect")
+library(Reconnect)
+```
+
 
 ## License
 
 This project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License (CC BY-NC-SA 4.0). See the [LICENSE](LICENSE) file for details.
 
 [![License: CC BY-NC-SA 4.0](https://licensebuttons.net/l/by-nc-sa/4.0/88x31.png)](https://creativecommons.org/licenses/by-nc-sa/4.0/)
+
+
+## Feedback
+Please write me an email in case of questions at: jacqueline.oehri@gmail.com
 
 
 ## Reconnect_functions
