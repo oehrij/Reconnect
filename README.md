@@ -24,7 +24,7 @@ This project is licensed under the Creative Commons Attribution-NonCommercial-Sh
 
 
 ## Feedback
-Please write me an email in case of questions at: jacqueline.oehri@gmail.com
+Please write me an email at: jacqueline.oehri@gmail.com
 
 
 ## Reconnect_functions
