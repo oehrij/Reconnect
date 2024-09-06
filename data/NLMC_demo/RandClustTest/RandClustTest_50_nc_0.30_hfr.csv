@@ -1,0 +1,16 @@
+"simname","nc","hfr","cf","rep","metric","value"
+"RandClustTest",50,0.3,0.1,1,"ta",750
+"RandClustTest",50,0.3,0.1,1,"tna",741
+"RandClustTest",50,0.3,0.1,1,"tnpatch",148
+"RandClustTest",50,0.3,0.1,1,"tnperim",1344
+"RandClustTest",50,0.3,0.1,1,"tnndf",58.0197648378371
+"RandClustTest",50,0.3,0.4,1,"ta",750
+"RandClustTest",50,0.3,0.4,1,"tna",790
+"RandClustTest",50,0.3,0.4,1,"tnpatch",43
+"RandClustTest",50,0.3,0.4,1,"tnperim",854
+"RandClustTest",50,0.3,0.4,1,"tnndf",51.7387688827099
+"RandClustTest",50,0.3,0.6,1,"ta",750
+"RandClustTest",50,0.3,0.6,1,"tna",1166
+"RandClustTest",50,0.3,0.6,1,"tnpatch",7
+"RandClustTest",50,0.3,0.6,1,"tnperim",368
+"RandClustTest",50,0.3,0.6,1,"tnndf",36.3444300069456

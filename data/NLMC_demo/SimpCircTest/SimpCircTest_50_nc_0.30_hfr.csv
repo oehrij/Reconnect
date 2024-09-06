@@ -1,0 +1,16 @@
+"simname","nc","hfr","npatch","sdpa","cf","rep","metric","value"
+"SimpCircTest",50,0.3,3,0,1,1,"ta",749.961923402471
+"SimpCircTest",50,0.3,3,0,1,1,"tna",749.961923402471
+"SimpCircTest",50,0.3,3,0,1,1,"tnpatch",3
+"SimpCircTest",50,0.3,3,0,1,1,"tnperim",168.147602277611
+"SimpCircTest",50,0.3,3,0,1,1,"tnndf",6.8906431181479
+"SimpCircTest",50,0.3,10,0,1,1,"ta",749.961923402471
+"SimpCircTest",50,0.3,10,0,1,1,"tna",749.961923402471
+"SimpCircTest",50,0.3,10,0,1,1,"tnpatch",10
+"SimpCircTest",50,0.3,10,0,1,1,"tnperim",306.994115859516
+"SimpCircTest",50,0.3,10,0,1,1,"tnndf",14.7934114334554
+"SimpCircTest",50,0.3,40,0,1,1,"ta",393.730009786297
+"SimpCircTest",50,0.3,40,0,1,1,"tna",393.730009786297
+"SimpCircTest",50,0.3,40,0,1,1,"tnpatch",21
+"SimpCircTest",50,0.3,40,0,1,1,"tnperim",322.343821652492
+"SimpCircTest",50,0.3,40,0,1,1,"tnndf",35.2727003350055

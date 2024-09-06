@@ -1,0 +1,28 @@
+Package: Reconnect
+Title: What the Package Does (One Line, Title Case)
+Version: 1.0.0
+Authors@R: 
+    person("Jacqueline", "Oehri", , "jacqueline.oehri@gmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-2981-9402"))
+Description: Calculate Multispecies Connectivity Metrics across Scales and Regions of interest using Moving Windows.
+License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
+    license
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.3
+Imports: 
+    dismo,
+    doParallel,
+    foreach,
+    gdistance,
+    igraph,
+    landscapemetrics,
+    raster,
+    readxl,
+    sf,
+    stars,
+    terra
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
