@@ -11,7 +11,7 @@ The Reconnect R-tool application is demonstrated in a recent study: [Rapid evalu
 ```r
 #install_packages("devtools")
 library(devtools)
-install_github("oehrij/Reconnect")
+install_github("oehrij/Reconnect",build_vignettes = TRUE)
 library(Reconnect)
 ```
 
