@@ -3,11 +3,11 @@
 "all",0,NA,"npatch",41,"landscape",28,80,1,50
 "all",0,NA,"tpa_ha",0.3847,"landscape",28,80,1,50
 "all",0,NA,"mnpa_ha",0.00938292682926829,"landscape",28,80,1,50
-"all",0,10,"MPCraw",3142.24732052627,"landscape",28,80,1,50
-"all",0,10,"MPCdens",0.81680460632344,"landscape",28,80,1,50
-"all",0,10,"MPCrmax",0.00076715022473786,"landscape",28,80,1,50
+"all",0,10,"MPCraw",3142.24732052626,"landscape",28,80,1,50
+"all",0,10,"MPCdens",0.816804606323437,"landscape",28,80,1,50
+"all",0,10,"MPCrmax",0.000767150224737857,"landscape",28,80,1,50
 "all",0,100,"MPCraw",19673.041719272,"landscape",28,80,1,50
-"all",0,100,"MPCdens",5.11386579653547,"landscape",28,80,1,50
+"all",0,100,"MPCdens",5.11386579653548,"landscape",28,80,1,50
 "all",0,100,"MPCrmax",0.00480298870099413,"landscape",28,80,1,50
 "all",0,500,"MPCraw",32952.2978585608,"landscape",28,80,1,50
 "all",0,500,"MPCdens",8.5657129863688,"landscape",28,80,1,50
