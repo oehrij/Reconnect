@@ -1,0 +1,190 @@
+---
+title: "NLMC_Demo"
+author: "Jacqueline Oehri"
+date: "2023-08-01"
+output:
+  html_document:
+   # theme: journal
+   # highlight: tango
+   # toc: true
+   # toc_float: true
+   # number_sections: true
+    code_folding: hide
+    code_download: true
+#runtime: shiny
+---
+
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Neutral Landscape Model (NLMC) computation
+
+The Reconnect R-package offers 2 ways to generate simulated landscapes where the amount and fragmentation of habitat can be adjusted: 
+ 1. The "simple circle" simulation (simpcirc_gen), where the total habitat area, as well as number and clumping of circular habitat patches can be set
+ 2. The "random cluster" simulation (randclust_gen), where Reconnect offers a wrapper function applying the random cluster algorithm developped by [Saura and Martinez-Millan 2000](https://link.springer.com/article/10.1023/A:1008107902848) and implemented in the [NLMR package](https://github.com/ropensci/NLMR/) by [Sciaini et al. 2018](https://besjournals.onlinelibrary.wiley.com/doi/10.1111/2041-210X.13076).
+ 
+Additionally, Reconnect offers a way to randomly sample "real-world" landscapes of a given size from an input habitat raster file (reallands_gen).
+
+The following shows examples of how to create a library of simulated landscapes with the above mentioned methods.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#########################################################
+### clean space
+#rm(list=ls(all=TRUE))
+#########################################################
+## set directories
+parent_dir = dirname(dirname(rstudioapi::getActiveDocumentContext()$path))
+parent_dir = dirname(getwd())
+## source directory
+sourcedir  = paste0(parent_dir,"/data") 
+## results directory
+resdir     = sourcedir
+## folder for results outputs
+respath    = paste0(resdir,"/NLMC_demo")
+if(!dir.exists(respath)){dir.create(respath)}
+
+##########################################################
+## libraries
+library(RandomFields)     # NLMR package is relying on this
+library(knitr)
+library(rmarkdown)
+library(sf)               # new spatial vector processing package
+library(raster)           # old (but still useful) spatial raster processing
+library(stars)            # spatial processing (conversion between sf and raster possible, spatiotemporal datacube analyses)
+library(terra)
+library(foreach)
+library(Reconnect)
+## some colors...
+JOcols  = c("cyan3","olivedrab3","olivedrab4")
+JOcolsr = colorRampPalette(c("navy","lightblue","grey","mediumorchid","cyan3","cyan4","tan","olivedrab3","olivedrab2","olivedrab4"))
+JOcolsr1 = colorRampPalette(c("olivedrab3","orange","mediumorchid"))
+```
+
+
+## 1. Simple circle simulation
+
+```{r simpcirc_example}
+
+######################################################################
+## Simple circle simulation
+######################################################################
+
+######################################################################
+### Preparations
+## set seed for reproducibility
+set.seed(15)
+### create a name of the simulation
+simname = "SimpCircTest"
+## initialize parameters
+ncs     = 50                                        ## define number of cells of landscape # 500 cells for dimx and dimy is reasonably good!!
+hfrs    = c(0.30)                                   ## define fraction of habitat in landscape, in combination with npatches, this defines patch area
+npatches= c(3,10,40)                                ## define number of patches (maximum nr should not be more than 10 times the number of cells..) in combination with hfrs, this defines patch area
+sdpas   = 0                                         ## define sd among patch areas
+cfs     = 1                                         ## clumping factor: 1 = non-overlapping patches, >1: clumped & overlapping patches
+reps    = 1                                         ## number of replicates per run
+remedge = TRUE                                      ## remove the edge of the landscape? - i.e. patches cannot go partially outside landscape
+
+######################################################################
+### Generate landscape library
+simpcirc_gen(simname=simname,ncs=ncs,hfrs=hfrs,npatches=npatches,sdpas=sdpas,cfs=cfs,reps=reps,respath=respath,remedge=remedge) 
+
+######################################################################
+### Plot results
+files = list.files(paste0(respath,"/",simname))
+print(files)
+tifs = files[grep(".tif$",files)]
+for(tt in tifs) {
+ tres = terra::rast(paste0(paste0(respath,"/",simname),"/",tt))
+ plot(tres,main=tt)
+}
+
+```
+
+
+## 2. Random Cluster simulation
+
+```{r randomcluster}
+
+######################################################################
+## Random cluster simulation
+######################################################################
+
+######################################################################
+### Preparations
+## set seed for reproducibility
+set.seed(150)
+### create a name of the simulation
+simname = "RandClustTest"
+## initialize parameters
+ncs     = 50                  ## define number of cells of landscape # 500 cells for dimx and dimy is reasonably good!!
+hfrs    = c(3/10)             ## define fraction of habitat in landscape, Ai in Saura et al..
+cfs     = c(c(1,4,6)/10)      ## clumping factor: pi in [Saura and Martinez-Millan 2000](https://link.springer.com/article/10.1023/A:1008107902848): Note that it is actually not necessary to move pi beyond ca. 0.593 (4-neighborhood clumping rule).
+reps    = 1                   ## number of replicates per run
+ncores  = 2                   ## number of cores to use for parallel processing
+
+######################################################################
+### Generate landscape library
+### add missing one: 4.4.2023  RandClust540_nc_0.50_hfr_0.10_cf_1_rep ??
+randclust_gen(simname=simname,ncs=ncs,hfrs=hfrs,cfs=cfs,respath=respath,reps=reps,ncores=ncores)
+
+######################################################################
+### Plot results
+files = list.files(paste0(respath,"/",simname))
+print(files)
+tifs = files[grep(".tif$",files)]
+for(tt in tifs) {
+ tres = terra::rast(paste0(paste0(respath,"/",simname),"/",tt))
+ plot(tres,main=tt)
+}
+
+```
+
+
+## 3. Real-world samples
+
+```{r realworld_samples}
+
+######################################################################
+## Select a number of sample landscapes from a given input raster
+######################################################################
+
+######################################################################
+### Preparations
+## set seed for reproducibility
+set.seed(15)
+
+### create a name of the simulation
+simname = "RealLandsTest"
+## initialize parameters
+ncs       = 20              ## define number of cells of landscape # 500 cells for dimx and dimy is reasonably good!!
+samplesize = 3              ## number of desired sample landscapes
+overlap    = 0.5            ## overlap among sampled landscapes 1=no overlap,if <1 overlap will be bigger, if >1 distance among sampled landscapes will be larger
+reps    = 1                 ## number of replicates per run
+ncores  = 1                 ## number of cores to use for parallel processing
+rast    = as(tres,"Raster") ## land cover raster file containing
+names(rast) = "habitat"
+### example real-world landscape, from which samples should be taken:
+raster::plot(rast,main=names(rast))
+######################################################################
+### Generate landscape library
+reallands_gen(simname=simname,rast=rast,ncs=ncs,samplesize=samplesize,overlap=overlap,respath=respath,habnames=NULL,lcdf=NULL,lccol="hab")
+
+######################################################################
+### Plot results
+files = list.files(paste0(respath,"/",simname))
+print(files)
+tifs = files[grep(".tif$",files)]
+for(tt in tifs) {
+ tres = terra::rast(paste0(paste0(respath,"/",simname),"/",tt))
+ plot(tres,main=tt)
+}
+
+
+```
+
+

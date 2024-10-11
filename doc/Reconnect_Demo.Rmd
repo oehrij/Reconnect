@@ -1,0 +1,943 @@
+---
+title: "Reconnect_Demo"
+author: "Jacqueline Oehri"
+date: "2023-08-01"
+output:
+  html_document:
+   # theme: journal
+   # highlight: tango
+   # toc: true
+   # toc_float: true
+   # number_sections: true
+    code_folding: hide
+    code_download: true
+#runtime: shiny
+---
+
+# Rapid Evaluation of Multispecies Connectivity (Reconnect)
+
+Reconnect is a framework, accompanied by an R-package, that can be used to compute ecological connectivity indicators for multiple species and habitat needs across a region of interest.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#########################################################
+### clean space
+#rm(list=ls(all=TRUE))
+#########################################################
+## set directories
+parent_dir = dirname(dirname(rstudioapi::getActiveDocumentContext()$path))
+parent_dir = dirname(getwd())
+## source directory
+#sourcedir = system.file(package="Reconnect")
+sourcedir  = paste0(parent_dir,"/data") 
+## results directory
+resdir     = sourcedir
+## folder for results outputs
+respath    = paste0(resdir,"/Reconnect_demo")
+if(!dir.exists(respath)){dir.create(respath)}
+## folder for results outputs (summary results output)
+respath2    = paste0(respath,"/Reconnect_demo_output")
+if(!dir.exists(respath2)){dir.create(respath2)}
+
+##########################################################
+## libraries
+library(knitr)
+library(rmarkdown)
+library(sf)               # new spatial vector processing package
+library(raster)           # old (but still useful) spatial raster processing
+library(stars)            # spatial processing (conversion between sf and raster possible, spatiotemporal datacube analyses)
+library(terra)
+library(foreach)
+library(Reconnect)
+## some colors...
+JOcols  = c("cyan3","olivedrab3","olivedrab4")
+JOcolsr = colorRampPalette(c("navy","lightblue","grey","mediumorchid","cyan3","cyan4","tan","olivedrab3","olivedrab2","olivedrab4"))
+JOcolsr1 = colorRampPalette(c("olivedrab3","orange","mediumorchid"))
+```
+
+## Summary
+***
+```{r figure, echo=FALSE, fig.cap="", out.width = '100%'}
+knitr::include_graphics(paste0(parent_dir,"/data/Reconnect_approach.png"))
+```
+
+**Figure 1. Rapid Evaluation of Multispecies Connectivity (Reconnect) framework.** 1) Data input is a species (or ecoprofile) specific, binary habitat map that can be determined a priori (Albert et al., 2017; Meurant et al., 2018; B Rayfield et al., n.d.; Bronwyn Rayfield et al., 2016) or a posteriori from species distribution models (Liu, Newell, White, & Bennett, 2018; Rezaei, Mohammadi, Malakoutikhah, & Khosravi, 2022; Salgueiro et al., 2021; Shahnaseri et al., 2019; Tarabon, Bergès, Dutoit, & Isselin-Nondedeu, 2019). 2) In Reconnect, multiple habitat maps are “stacked” and multilayer habitat networks (Hartfelder et al., 2020; Hutchinson et al., 2018; Pilosof, Porter, Pascual, & Kéfi, 2017) extracted, in which links between habitat patches are determined by estimating species-specific dispersal probabilities (Hartfelder et al., 2020). Multilayer habitat networks can be computed in moving windows of different relevant sizes (Drielsma & Ferrier, 2009) and variable spatial overlap (Koen et al., 2019). 3) Multiple connectivity functions can be computed simultaneously across a range of species in the moving windows. With Reconnect, moving window results can then be aggregated into coherent maps of connectivity at pixel-level, patch-level or landscape-level for the species of interest. 4) The resulting maps can be used to evaluate connectivity indicators for multiple species.
+
+
+### Note
+The Reconnect [R-package](https://github.com/oehrij/Reconnect) used to implement the Reconnect framework is based and inspired by recently developed R-packages including Makurhini (Godínez-Gómez, O. and Correa Ayram C.A., 2020), gdistance (van Etten, 2017), igraph (Csardi & Nepusz, 2006), landscapemetrics (Hesselbarth, Sciaini, With, Wiegand, & Nowosad, 2019) and R-functions in refs. (Huang, Pimm, & Giri, 2020; Strimas-Mackey & Brodie, 2018). The main difference of Reconnect to these tools is that it is not focused on a specific set of connectivity indicators (cf. CONN_functions.R and MPC_functions.R in this package), rather, any connectivity indicator (that can be computed based on habitat distribution maps or resistance surfaces) could be defined and included in connectivity analyses. Similar to (Hughes et al., 2022), the Reconnect R-package aims at facilitating the flexible computation of connectivity indices simultaneously for multiple species and across a range of environmental contexts within a reasonable amount of time, and at reasonable spatial scales and resolution.
+
+For questions and suggestions, please contact jacqueline.oehri@gmail.com
+
+
+## Workflow Demo
+***
+
+### 1. Create a habitat map, a resistance map and a region of interest (roi)
+
+```{r makelandscape}
+######################################################################
+## set seed for reproducibility
+set.seed(15)
+##
+### initialize parameters
+nc1     = 250                                       ## define number of cells of landscape # 500 cells for dimx and dimy is reasonably good!!
+hfr1    = c(0.15)                                   ## define fraction of habitat in landscape, in combination with npatches, this defines patch area
+npatch1= c(100)                                     ## define number of patches (maximum nr should not be more than 10 times the number of cells..) in combination with hfrs, this defines patch area
+sdpa1   = 0                                         ## define sd of patch area
+cf1     = 1                                         ## clumping factor: 1 = non-overlapping patches, >1: clumped & overlapping patches
+remedge1= TRUE                                      ## remove the edge of the landscape? - i.e. patches cannot go partially outside landscape
+##
+### make a simple circle simulation
+res = simpcirc(dimx=nc1,dimy=nc1,hfr=hfr1,npatch=npatch1,sdpa=sdpa1,cf=cf1,form="circle",return="all",remedge=remedge1)
+##
+### habitat raster
+lcr = res$rast
+##
+### set roi to NULL to get the full extent
+bbox = sf::st_bbox(lcr)
+bbox[c(3,4)] = bbox[c(1,2)]+0.8*(bbox[c(3,4)]-bbox[c(1,2)])
+roi  = sf::st_sf(ID= 1, geometry=sf::st_as_sfc(bbox))
+sf::st_crs(roi) = sf::st_crs(lcr)
+##
+### make a resitance raster
+lres = res$rast
+## set all to 1 for the moment
+lres[] = 1
+## add a barrier whith resistance 20: cost distances should be *20 meters longer!
+ncc = ncell(lres)
+lres[round(ncc*0.5):round(ncc*0.6)] = 20
+##
+### plot for overview
+par(mfrow=c(1,1))
+plot(lres,col=JOcolsr1(100),main="habitat and resistance landscape \n with roi")
+plot(lcr,col=c(NA,"darkgreen"),add=TRUE,legend=FALSE)
+plot(roi$geometry,add=TRUE,col=NA,border="blue",lwd=2)
+
+```
+
+
+### 2. Define connectivity functions 
+Connectivity functions are described in the Reconnect_ini file!
+The average gap crossing distances are indicated in the "alphav" column of the inifile.
+The minimum habitat size requirements (that correspond to the gap crossing distances) are indicated in the "minsizev" column of the inifile.
+
+#### Description of Reconnect_ini file:
+
+* **conname**:    User-defined name of connectivity function
+* **resname**:    User-defined name of connectivity function result(s)
+* **confun**:	    recise name of connectivity function as defined in the corresponding R-package(s)
+* **statement**:  The confun-specific statement (should be of the form "confun(...)"). 
+    * Possible input objects prepared by Reconnect are: 
+        * Dispersal capacity (alpha1)
+        * focal area (foc1)
+        * shapefile of habitat patches (shp1)
+        * raster file of habitat patches (lcr1: habitat = 1, non-habitat = NA; lcr2: habitat patches have values of shapefile id's)
+        * resistance file (re1)
+        * vector of habitat patch areas (pa1) and matrix of pairwise distances (mdist1), both calculated using cost_type & dist_type settings
+        * area of focal buffer (foc1a)
+    * Next to these objects, connectivity function statement can specify any other object-independent arguments such as evec=FALSE in MPCser (type ?MPCser for more details). 
+* **resultnr**:	  In case the confun has several result outputs (e.g. list objects), the corresponding index can be specified as resultnr (should correspond to the "resname" content.
+* **alphav**:	    Numeric values of desired gap crossing capacities, in units of the distances (usually meters)
+* **minsizev**:	  Numeric values of alphav-specific minimum habitat patch areas, usually in meters-squared.
+* **level**:	    Are connectivity functions applied at pixel, patch, and/or landscape-level?
+* **aggfun**:	    Function to aggregate pixel and patch-level connectivity indicators to the landscape level
+* **rpack**:	    R-package(s) of which confun should be taken.
+
+```{r loadini}
+### set warnings off..
+options(warn=-1)
+## read inifile
+#cond = readini(path=paste0(sourcedir,"/inifile/Reconnect_inifile_demo.xlsx"),sheet=1)
+## for the vignette, save it as an RDA file
+#saveRDS(cond,file=paste0(parent_dir,"/data/Reconnect_inifile_demo.rds"))
+cond = readRDS(paste0(parent_dir,"/data/Reconnect_inifile_demo.rds"))
+#print(cond)
+#kable(cond)
+paged_table(cond)
+## Extract the dispersal distances from the inifile 
+## Alternatively, you could also set alphav = c(100,500)
+alphav  = unique(unlist(strsplit(cond$alphav,split=","))) 
+alphav  = alphav[alphav!="NA"] %>% as.numeric %>% sort(decreasing=FALSE)
+print("dispersal capacities (alphav) are as follows...")
+print(alphav)
+
+```
+
+
+### 3. Decide on scales and resolution of interest
+To show an example, we create a dataframe, where the desired raster resolution, the size of the moving windows (radius = 0.5*moving window sidelength) and the spatial overlap among windows (incr) is defined. Each row in the scaledf dataframe corresponds to a resolution x moving window size x spatial overlap configuration that can be taken as input in Reconnect.
+If "incr" is set to NA, Reconnect will only make 1 window of interest, centered in the middle of the region of interest.
+
+```{r scalesdf}
+### Use scaledf function to make radii and resolution based on alphas and raster at hand
+maxrad  = max((extent(lcr)[2]-extent(lcr)[1]),(extent(lcr)[4]-extent(lcr)[3]))/2
+scaledf = data.frame(resolution=c(1,10),radius=c(80,maxrad),incr=c(50,NA))
+print(scaledf)
+
+```
+
+
+### 4. Set other Reconnect parameters
+Type ?Reconnect_wrap to see all options. 
+Most important settings concern distance calculations (euclidean or scaled by resistance layer; centroid to centroid or edge to edge), as well as moving window form (square or circular), and maximum number of patches (depending on available RAM space, this number can be augmented and serves as a means to prevent RAM space to overcharged).
+
+```{r setparams}
+#####
+## Habitat name
+habi = "greenpatch"
+#####
+## Create minimum habitat patch size vector argument (instead of the inifile, you might want to specify a minimum habitat patch size requirement for valid for all gap crossing capacities here)
+minsizev  = c(0) 
+#####
+## Decide if patches should be "cut" or not at moving window boundaries
+## cut patches but make sure a weighted mean is possible if patches overlay several tiles!
+cutpatches = TRUE
+#####
+## Set if you want to make the euclidean or cost distances
+cost_type  = "euclidean"              # euclidean or cost distance?
+dist_type  = "edge"                   # edge-to-edge or centroid-to-centroid?
+trans_fun  = function(x) 1/mean(x)    # transitioning function in case of cost distances (cf. gdistance R-package)
+neighb     = 8                        # neighborhood rule in case of cost distances (cf. gdistance R-package)
+areafun    = sf::st_area              # area function for patch areas
+#####
+## other Parameters
+## bufferform (square or circular)
+bufform ="square"
+####
+## make overviewplot?
+oviewplot = TRUE
+####
+## maxnpatch (maximum nr of patches in one window (for RAM ~15 GB, a maxnpatch of 28500 is the suggested))
+maxnpatch = 28500
+#####
+## ncores for parallel processing
+ncores = 4
+######
+### set 2 different colorschemes for overview plots: hcols= habitat layer colors, rcols=resistance layer colors
+hcols = rev(c("yellow","orange","red","purple","blue","lightblue"))
+rcols = rev(c("purple","lightblue","yellow","olivedrab","darkgreen"))
+
+### set a resolution and increment of moving windows of interest (all numbers in units of the raster, usually meters)
+sci = 1
+resolution = scaledf[sci,"resolution"]   # spatial resolution of habitat and resistance raster layers
+radius     = scaledf[sci,"radius"]       # radius of moving window buffers (circular) or in case buffers = square, radius = 0.5*moving window side length.
+incr       = scaledf[sci,"incr"]         # increment or spatial overlap of moving windows
+
+
+```
+
+
+### 5. The Reconnect_wrap function step by step
+These steps will be carried out for each scale x resolution x overlap of moving windows definition in the scaledf..
+
+#### Step 1 
+Prepare input data.
+Aggregate input data according to raster resolution of interest, align habitat and resistance layers, make color palettes. In case a roi is given, crop data to region of interest.
+
+```{r step1}
+
+  ### set warnings off..
+  options(warn=-1)
+
+  ######
+  ### 1.0) make a color palette of the given colour schemes!
+  hcols = colorRampPalette(hcols)
+  rcols = colorRampPalette(rcols)
+
+  ######
+  ### If resolution and radius are not indicated, make a default
+  if(length(resolution)==0) {resolution = mean(res(lcr),na.rm=TRUE)[1]}
+  if(length(radius)==0)     {radius = max((extent(lcr)[2]-extent(lcr)[1]),(extent(lcr)[4]-extent(lcr)[3]))/2}
+  print(sprintf("resolution=%0.0fm, radius=%0.0fm, increment=%0.0fm...",resolution,radius,incr))
+  
+  ### assign a new hr object
+  hr = lcr
+  ### make sure that non-habitat cells are NA and not 0
+  hr[hr<1] = NA
+  ### name habitat raster
+  names(hr) = "habitat"
+  
+  ### 2.0) resample habitat raster in case the desired resolution does not match the one of the raster at hand
+  if(resolution != mean(res(lcr),na.rm=TRUE)[1]) {
+    ### determine factor of aggregation
+    fact = resolution/mean(res(lcr),na.rm=TRUE)[1]
+    hr[is.na(hr)] = 0
+    hr = raster::aggregate(x=hr,fact=fact,fun=function(x,na.rm=na.rm){sum(x)},expand=FALSE,na.rm=TRUE)
+    ### Conservative approach: set all the pixels with less than 75% habitat to 0!
+    hr[hr<=0.75*(fact^2)] = 0
+    hr[hr>0.75*(fact^2)]  = 1
+    hr[hr==0] = NA
+  }
+
+  ### 3.0) add resistance to the habitat raster if provided (and otherwise create one of resitance 1...)
+  if(length(lres)>0){
+        re = lres
+         re = terra::resample(x=terra::rast(re), y=terra::rast(hr), method="bilinear") %>% as("Raster")
+    } else if(length(lres)==0) {
+    ## create a resistance layer where all resistance is set to 1 (more compatible with overall functionality)
+    re   = hr
+    re[] = 1
+  }
+    ## make sure it is named correctly
+    names(re) = "resistance"
+    ## make sure that infinite cells are just NA
+    re[!is.finite(re)] = NA
+    ## stack habitat and resistance raster
+    hr = raster::stack(hr,re)
+
+  ######
+  ### 4.0) mask to region of interest if roi is provided, and set extent (used for centers below)
+  ### make the roi with a buffer distance!! (like this, the global extent will anyway be kept when incr = NA)
+    if(length(roi)>0){
+      if(sf::st_crs(hr)!=sf::st_crs(roi)) {
+        roi = sf::st_transform(roi,crs = st_crs(hr))
+      }
+    } else if(length(roi)==0){
+    roi = sf::st_sf(ID= 1, geometry=sf::st_as_sfc(sf::st_bbox(hr)))
+    sf::st_crs(roi) = sf::st_crs(hr)
+   }
+    ## make the roi1 with a buffer distance:
+    roi1 = sf::st_buffer(roi,dist=radius)
+    ext  = raster::extent(roi1)
+    hr   = raster::crop(hr,ext)
+    hr   = raster::mask(hr,roi1)
+
+
+```
+
+#### Step 2 
+Extract a habitat shapefile where each patch has an unique patch id! (This will be saved as a shapefile). This allows the aggregation of separate moving window results into one seamless map in the end.
+
+```{r step2}
+######
+  ### 5.0) identify raster clumps, i.e. generate IDs!
+  hr1   = landscapemetrics::get_patches(hr[["habitat"]], directions=4, class=1)[[1]][[1]]
+  print(sprintf("found %0.0f patches..",max(values(hr1),na.rm=TRUE)))
+
+  ######
+  ### 5.1) if it is a raster, make a shapefile out of it, to be able to exclude patches below minsize..
+  hshp = stars::st_as_stars(hr1) %>% sf::st_as_sf(merge = TRUE)
+  hshp = sf::st_make_valid(hshp,reason=TRUE)
+  names(hshp)[[1]] = "pid"
+
+  ######
+  ### 5.2) replace habitat raster by patches raster
+  hr[["habitat"]] = hr1
+  rm(list="hr1")
+
+  ######
+  ### 5.3) write the patches to shapefile
+  if(file.exists(paste(respath,sprintf("hshp_res%0.0f_rad%0.0f_incr%0.0f_habi%s.shp",resolution,radius,incr,habi),sep='/'))){
+     file.remove(paste(respath,sprintf("hshp_res%0.0f_rad%0.0f_incr%0.0f_habi%s.shp",resolution,radius,incr,habi),sep='/')) }
+  st_write(hshp, paste(respath,sprintf("hshp_res%0.0f_rad%0.0f_incr%0.0f_habi%s.shp",resolution,radius,incr,habi),sep='/'), driver="ESRI Shapefile")  # create to a shapefile
+
+  plot(hshp,main="habitat patches shapefile")
+    
+```
+
+
+#### Step 3 
+Establish moving windows, using their center coordinate, side length (defined by "radius"), shape (square or circular), and overlap (defined by "incr"). Save centers as shape file.
+
+```{r step3}
+
+  ######
+  ### 6.0) make a shapefile with centerpoints of moving windows
+  centers = mkcenters(ext=ext,incr=incr)
+
+  #### if a region of interest is given (roi), only use centers for region of interest
+  ### 6.1) mask to region of interest if roi is provided, and set extent (used for centers below)
+  if(sf::st_crs(centers)!=sf::st_crs(roi1)) {
+      if(!is.na(sf::st_crs(centers))) {
+          centers = sf::st_transform(centers,crs = sf::st_crs(roi1))
+          } else if(is.na(sf::st_crs(centers))) {
+            sf::st_crs(centers) =  sf::st_crs(roi1)
+           }
+         }
+  centers = sf::st_intersection(centers,roi1)
+
+  ### write centers shapefile to file, it contains the IDs and corresponding moving window center locations!
+  if(file.exists(paste(respath,sprintf("centers_res%0.0f_rad%0.0f_incr%0.0f_habi%s.shp",resolution,radius,incr,habi),
+                       sep='/'))) { file.remove(paste(respath,sprintf("centers_res%0.0f_rad%0.0f_incr%0.0f_habi%s.shp",resolution,radius,incr,habi),sep='/'))}
+  sf::st_write(centers, paste(respath,sprintf("centers_res%0.0f_rad%0.0f_incr%0.0f_habi%s.shp",resolution,radius,incr,habi),sep='/'), driver="ESRI Shapefile")  # create to a shapefile
+
+  ####################################
+  ## quick overview plot
+  #if(oviewplot==TRUE) {
+  #pdf(paste(respath,sprintf("Reconnect_ov_rad%0.0fm_res_%0.0fm_incr%0.0fm_%s.pdf",radius,resolution,incr,habi),sep="/"))
+  ## plot all data
+  #raster::plot(hr,col=rev(rcols(100)))
+  ### take a small extent
+  ext2 = ext*0.2
+  ##plot(ext2)
+  if(nlayers(hr)==2){
+  raster::plot(hr[["resistance"]],col=adjustcolor(rev(rcols(100)),alpha.f=0.5),legend=FALSE,main=sprintf("nr of buffers = %d",length(centers$geometry)),sub="blue = roi")
+  raster::plot(hr[["habitat"]],col=hcols(100),add=TRUE,legend=FALSE)
+  } else if(nlayers(hr)==1) {raster::plot(hr[["habitat"]],col=hcols(100),legend=FALSE,sub="blue = roi")}
+  plot(centers$geometry,add=TRUE,pch=3,cex=0.4,lwd=1.2,col="black")
+  plot(roi$geometry,add=TRUE,border="blue",col=NA,lwd=2)
+  ## make a polygon of extent and extract center coordinates
+  p         = st_as_sf(as(ext2, 'SpatialPolygons'))
+  st_crs(p) = st_crs(centers)
+  centers1  = centers[p,]
+  ### make circular buffers
+  sps = mkbuffer(centers=centers1,radius=radius,form=bufform)
+  ## controlplot
+  raster::plot(hr[["habitat"]],col="darkgreen",legend=FALSE,
+               main=sprintf("nr of buffers = %d",length(centers$geometry)),sub="blue = roi")
+  plot(sps$geometry,add=TRUE,col=adjustcolor(hcols(100),alpha.f=0.3),border=hcols(10),lwd=0.8)
+  plot(roi$geometry,add=TRUE,border="blue",col=NA,lwd=2)
+
+  #dev.off()
+  #} # overviewplot
+
+    
+```
+
+
+#### Step 4 
+Set up for parallel processing of moving windows.
+
+```{r step4}
+  ## in case the user wants to specify start and end center IDs, it could be indicated here
+  cst = NULL
+  cen = NULL
+
+  ######
+  ### 7.0) start calculation of MULTIPLEX connectivity for connectivity indices x,y,z
+  print(sprintf("start parallel moving windows %s...",habi))
+  a = Sys.time()
+  
+  ## add packages to the environment in case not contained
+  rpacks = unique(unlist(strsplit(cond$rpack,split=",")))
+  rpacks = rpacks[rpacks!="NA"]
+  
+  ## add gdistance package to the packages if cost type != euclidean!
+  if(cost_type!="euclidean"){rpacks = unique(c(rpacks,"gdistance"))}
+  ## for parallelized treatment of patch IDs
+  ## only registerdoparallel if cluster is not registered
+  if(!foreach::getDoParRegistered()){
+  doParallel::registerDoParallel(cores=ncores)
+  }
+  
+  ## define nr of plots here
+  nplot=ceiling(0.1*length(unique(centers$cid)))
+  
+  ## define the centerids for which calculations should be done
+  if(length(cst)==0) {cst=1}
+  if(length(cen)==0) {cen=length(unique(centers$cid))}
+  
+  ## apply function for each center ID
+
+## parallel foreach loop:
+  # foreach::foreach(cid=unique(centers$cid)[cst:cen],
+  #                   .packages= unique(c("sf","raster","stars","terra","dismo","landscapemetrics",rpacks)),
+  #                   .export  = ls(globalenv())
+  #                   #.combine = rbind
+  #  ) %dopar% {
+ 
+  ### old version: regular for loop
+ #for(cid in unique(centers$cid)) {
+    
+    
+    
+```
+
+#### Step 5 
+Apply Reconnect_core function to all moving windows. 
+For Demonstration purposes, this is shown here for 1 moving window
+
+```{r step5}
+    
+########################################
+##JO: only part of the DEMO
+if(sci == 1) {cid = centers$cid[20]} else {cid = centers$cid[1] }
+
+print(paste("center cid =",cid,sep=""))
+########################################
+
+    ########################################
+    ## 7.1) Determine focal area of interest for connectivity meausurements
+    ## make square buffers
+    foc = mkbuffer(centers=centers[centers[["cid"]]==cid,],radius=radius,form=bufform)
+
+    ### extract raster information for buffer region of interest
+    if(sf::st_crs(hr)!=sf::st_crs(foc)) {
+      foc = sf::st_transform(foc,crs = sf::st_crs(hr))
+    }
+
+    ### JO: do this later! otherwise some patches are not correctly identified!
+    ### extract shapefile of interest, determine if including or excluding patches at window boundaries
+    #if(cutpatches==FALSE){shp1 = hshp[foc,]} else if(cutpatches==TRUE) {shp1 = sf::st_intersection(hshp,foc$geometry)}
+
+    # ## make plots only for some fraction of landscapes treated
+    # if ((cid/nplot)-floor(cid/nplot)==0) {
+    #   pdf(paste(respath,sprintf("Reconnect_detail_rad%0.0fm_res_%0.0fm_cid%d_%s.pdf",radius,resolution,cid,habi),sep="/"))
+    # }
+    
+    ########################################
+    ## Start of Reconnect_core function
+    ########################################
+    pidname = names(hshp)[[1]]
+    cols    = hcols(100)
+    
+    # Reconnect_core(cid=cid,pidname=pidname,hr=hr,foc=foc,hshp=hshp,minsizev=minsizev,
+    #                   cutpatches=cutpatches,cond=cond,nplot=nplot,cols=cols,
+    #                   cost_type  = cost_type,
+    #                   dist_type  = dist_type,
+    #                   trans_fun  = trans_fun,
+    #                   neighb     = neighb,
+    #                   areafun    = areafun,
+    #                   maxnpatch  = maxnpatch,
+    #                   radius     = radius,
+    #                   resolution = resolution,
+    #                   incr       = incr,
+    #                   respath    = respath,
+    #                   habi       = habi)
+    # 
+    # 
+    # # ## plot finish closeup
+    # if ((cid/nplot)-floor(cid/nplot)==0) {dev.off()} # plot
+#   } # centers dopar
+#   print(sprintf("all cid's finished..!"))
+#   print(Sys.time()-a)
+#   #closeAllConnections()
+#   ### clean environment: remove not used objects
+#   gc()
+# } # sci = scale
+# } # Reconnect_wrap end
+
+    
+```
+
+### 6. The Reconnect_core function step by step
+These steps will be carried out for each moving window determined by the centers shapefile.
+
+The Reconnect_core function works on each focal moving window separately. It crops the habitat network with the current moving window (cutpatches = TRUE will cut patches beyond moving window boundaries) and establishes a dataframe for each scale of connectivity indicators (cf. level column in inifile). It applies the functions specified in the inifile (conname, resname, confun and statement columns in the inifile) within the focal moving window, for all the dispersal capacities (alphav) and corresponding minimum habitat patch requirements (minsizev) specified.
+
+```{r step5.1, include=FALSE}
+    
+  ########################################
+  ## Create a dataframe where patch IDs and corresponding connectivity measurements are stored!!
+  dfpi  = data.frame(pid=NA,minsize=NA,alpha=NA,metric=NA,value=NA)
+  dfpa  = data.frame(pid=NA,minsize=NA,alpha=NA,metric=NA,value=NA)
+  dfla  = data.frame(pid=NA,minsize=NA,alpha=NA,metric=NA,value=NA)
+
+  ########################################
+  ## Generate shapefile for region of interest, include patches that are touched by window of interest (for correct minarea removal!)
+  hshp1 = hshp[foc,]
+
+  ########################################
+  ## go through minsize argument
+  for (minsiz in sort(minsizev,decreasing=FALSE)){
+    ## minsiz = sort(minsizev,decreasing=FALSE)[1]
+    print(sprintf("apply minsize %0.02fm...",minsiz))
+    shp1 = minarm(shp=hshp1,minsize=minsiz)
+    ## apply cutpatches argument only here, after minimum patches have been removed..!
+    if(cutpatches==TRUE) {shp1 = sf::st_intersection(shp1,foc$geometry)}
+
+    ### sometimes there is no habitat in focal area
+    if(length(shp1[[pidname]])>0) {
+      ### create new foc1 as polygon
+      foc1  = sf::st_union(foc,shp1) %>% sf::st_union(by_feature=FALSE)
+      foc1  = st_sf(geometry=foc1)
+    } else if(length(shp1[[pidname]])==0) {
+      foc1  = st_sf(geometry=foc$geometry)
+    }
+
+    ## try if extents overlap, if not go to next cid...
+    try = try(raster::crop(hr,raster::extent(foc1)),silent=TRUE)
+    if(class(try)[1]=="try-error") {print(sprintf("no overlap between cid %d and habitat data...",cid)); next}
+
+    ### crop raster according to extent of foc (or should it be according to extent of cutpatches, which might give assymetrical landscapes??)
+    hr1   = raster::crop(hr,raster::extent(foc1))
+    hr1   = raster::mask(hr1,foc1)
+
+    ### determine hr and resistance rasters
+    lcr2 = hr1[["habitat"]]
+    if(nlayers(hr1)==2) {re1 = hr1[["resistance"]]} else if(nlayers(hr1)<2) {re1 = NULL}
+
+    ### set all habitat patches in raster (determined by pixel values) not contained in shp1 to NA!
+    if(length(shp1[[pidname]])>1) {
+      lcr2[!values(lcr2)%in%shp1[[pidname]]] = NA
+    } else if(length(shp1[[pidname]])==1) {
+      lcr2[values(lcr2)!=shp1[[pidname]]] = NA
+    } else if(length(shp1[[pidname]])==0) {
+      lcr2[] = NA
+    }
+
+    ### make 1 habitat raster for connfunctions, where habitat cells = 1 and the rest = NA
+    lcr1 = lcr2
+    lcr1[!is.na(lcr1)] = 1
+
+    ### derive resolution from input data
+    resolution = mean(res(hr1),na.rm=TRUE)
+
+    # ### short plot
+    # if ((cid/nplot)-floor(cid/nplot)==0) {
+    #   plot(foc$geometry,main=sprintf("cid %s focal area \n habitat and resistance \n minsize %0.02fm %0.0fm res",cid,minsiz,resolution))
+    #   if(length(re1)>0){raster::plot(re1,add=TRUE)}
+    #   raster::plot(lcr2,add=TRUE,col="darkgreen",legend=FALSE)
+    #   plot(foc1$geometry,add=TRUE,border="darkorange",lwd=2)
+    # }
+
+    ########################################
+    ## 2) Start Reconnect calculations for area of interest, foc1a, pa & mdist are always calculated
+    ########################################
+    ## determine total area of foc1 in any case dfla$foc_ha = foc1a/10000
+    foc1a = as.numeric(areafun(foc1))
+    dfl   = data.frame(pid="all",minsize=minsiz,alpha=NA,metric="foc_ha",value=foc1a/10000)
+    dfla  = rbind(dfla,dfl)
+    ## determine number of patches in landscape
+    dfl   = data.frame(pid="all",minsize=minsiz,alpha=NA,metric="npatch",value=length(shp1[[pidname]]))
+    dfla  = rbind(dfla,dfl)
+    ## determine total and mean habitat patch area in landscape
+    pa_ha = as.numeric(sf::st_area(shp1))
+    dfl   = data.frame(pid="all",minsize=minsiz,alpha=NA,metric=c("tpa_ha","mnpa_ha"),value=c(sum(pa_ha,na.rm=TRUE)/10000,mean(pa_ha,na.rm=TRUE)/10000))
+    dfla  = rbind(dfla,dfl)
+
+    ########################################
+    ## derive patch areas in case there are some habitat patches...
+    if(length(shp1[[pidname]])>0 & length(shp1[[pidname]])<=maxnpatch){
+
+      ########################################
+      ## determine patch id names
+      pid = shp1[[pidname]]
+
+      ########################################
+      ## distance matrix: is quite slow, only make the distance matrix once
+      ## make the euclidean distance matrix
+      if(cost_type == "euclidean") {
+        ## get the patch area and euclidean distance matrix object
+        pamd  = eucdist_pm(x=shp1,id=pidname,areafun=sf::st_area,dist_type=dist_type)
+        pa1    = pamd$pa
+        mdist1 = pamd$mdist
+        ## remove to save memory
+        rm(list="pamd")
+      } # euclidean
+
+      ## make the resitance distance matrix
+        if(length(re1)>0 & cost_type == "least-cost") {
+            ## get the patch area and cost distance matrix object
+            pamd = costdist_pm(x=shp1,resi=re1,id=pidname,areafun=areafun,
+                               trans_fun=trans_fun,neighb=neighb,
+                               dist_type=dist_type,cost_type=cost_type)
+            pa1    = pamd$pa
+            mdist1 = pamd$mdist
+            ## remove to save memory
+            rm(list="pamd")
+        } # least-cost
+
+      ## add area of patches  (is quite fast..)
+
+      ########################################
+      ## Always add the patch area (important for summary after)
+      dfp  = expand.grid(pid=pid,minsize=minsiz)
+      dfp[["alpha"]]  = NA
+      dfp[["metric"]] = "pa_ha"
+      dfp[["value"]]  = pa1/10000
+      dfpa = rbind(dfpa,dfp)
+
+    ########################################
+    ## Apply connectivity functions for specified alphas
+    ########################################
+
+    ## go through connectivity metrics
+    for(conn in unique(cond$conname)) {
+      ## conn    = unique(cond$conname)[1]
+      condd     = cond[cond$conname==conn,]
+      print(condd)
+      resname   = gsub(" ","",strsplit(condd[,"resname"],split=",")[[1]])
+      confun    = eval(parse(text=condd[,"confun"]))
+      statement = condd[,"statement"]
+      alphav    = strsplit(condd[,"alphav"],split=",")[[1]]
+      alphav    = alphav[alphav!="NA"] %>% as.numeric()
+      minssz    = strsplit(condd[,"minsizev"],split=",")[[1]]
+      minssz    = minssz[minssz!="NA"] %>% as.numeric()
+      level     = unique(strsplit(condd[,"level"],split=",")[[1]])
+      resultnr  = strsplit(condd[,"resultnr"],split=",")[[1]]
+      resultnr  = resultnr[resultnr!="NA"]%>% as.numeric()
+      aggfun    = eval(parse(text=condd[,"aggfun"]))
+
+      ## check if alpha's are used
+      alphav = alphav[is.finite(alphav)]
+      ## check if minsize is specified
+      minssz = minssz[is.finite(minssz)]
+      if(length(minssz)>0) {
+      ## assign corresponding alphav if minsize is given for a specific alpha!
+      alphav = alphav[which(minssz == minsiz)]
+      }
+      ## apply functions
+      if(length(alphav)>0) {
+        alphav = alphav[order(alphav,decreasing=FALSE)]
+        ## try function first
+        try = try(sapply(alphav,function(alpha1){eval(parse(text = paste(statement)))}),silent=FALSE)
+        if(class(try)[1]=="try-error"){ conres = -99
+        } else if(class(try)[1]!="try-error"){
+          conres = sapply(alphav,function(alpha1){eval(parse(text = paste(statement)))})
+          colnames(conres) = alphav
+          if(length(conres)==0)  {conres = -99 }
+          if(length(resultnr)>0) {conres = conres[resultnr,]}
+        }
+        if("pixel" %in% level){
+          if(is.list(conres)){pp = unlist(conres)} else {pp = as.vector(conres)}
+          dfpp = expand.grid(pid=1:(length(pp)/length(alphav)),minsize=minsiz,metric=resname,alpha=alphav)
+          dfpp[["value"]]  = pp
+          dfpp = dfpp[,c("pid","minsize","alpha","metric","value")]
+          dfpi = rbind(dfpi,dfpp)
+        }
+        if("patch" %in% level){
+          dfp = expand.grid(pid=pid,minsize=minsiz,metric=resname,alpha=alphav)
+          dfp[["value"]]  = unlist(conres)
+          dfp  = dfp[,c("pid","minsize","alpha","metric","value")]
+          dfpa = rbind(dfpa,dfp)
+        }
+        if("landscape"%in%level){
+          dfl            = expand.grid(pid="all",minsize=minsiz,metric=resname,alpha=alphav,value=NA)
+          dfl[["value"]] = unlist(lapply(conres,aggfun))
+          dfl = dfl[,colnames(dfla)]
+          dfla = rbind(dfla,dfl)
+        }
+      } else if(length(alphav)==0){
+        ## try function first
+
+        try = try(eval(parse(text = paste(statement))),silent=FALSE)
+        if(class(try)[1]=="try-error"){ conres = -99
+        } else if(class(try)[1]!="try-error"){
+          conres = eval(parse(text = paste(statement)))
+          if(length(conres)==0)  {conres = -99 }
+          if(length(resultnr)>0){conres = conres[[resultnr]]}
+        }
+        if("pixel" %in% level){
+            pp = unlist(conres)
+          dfpp = expand.grid(pid=1:length(pp),minsize=minsiz)
+          dfpp[["alpha"]]  = NA
+          dfpp[["metric"]] = resname
+          dfpp[["value"]]  = pp
+          dfpi = rbind(dfpi,dfpp)
+        }
+        if("patch" %in% level){
+          dfp = expand.grid(pid=pid,minsize=minsiz)
+          dfp[["alpha"]]  = NA
+          dfp[["metric"]] = resname
+          dfp[["value"]]  = unlist(conres)
+          dfpa = rbind(dfpa,dfp)
+        }
+        if("landscape"%in%level){
+          dfl  = expand.grid(pid="all",minsize=minsiz,metric=resname,alpha=NA,value=NA)
+          if(length(conres)>nrow(dfl)){conres = aggfun(unlist(conres))} else if(length(conres)==0) { conres = -99 }
+          dfl[["value"]] = conres
+          dfl = dfl[,colnames(dfla)]
+          dfla = rbind(dfla,dfl)
+        }
+      }
+    } # for all conn functions
+
+
+    } # apply confun only if nr of patches are > 0 and < maxnrpatch
+
+  } # minsize
+
+  ########################################
+  ## finish datasets for window of interest, write to file..
+  dfpi$level = "pixel"
+  dfpa$level = "patch"
+  dfla$level = "landscape"
+
+  ## write to file if at least 1 row!
+  if(nrow(dfpi)>1){
+    dfpi = dfpi[-1,]
+    dfpi$cid    = cid
+    dfpi$radius = radius
+    dfpi$resolution  = resolution
+    dfpi$incr   = incr
+    write.csv(dfpi,paste(respath,sprintf("dfpi_rad%0.0fm_res_%0.0fm_incr_%0.0fm_cid%d_%s.csv",radius,resolution,incr,cid,habi),sep="/"),row.names=FALSE)
+  }
+
+  ## write to file if at least 1 row!
+  if(nrow(dfpa)>1){
+    dfpa = dfpa[-1,]
+    dfpa$cid    = cid
+    dfpa$radius = radius
+    dfpa$resolution  = resolution
+    dfpa$incr   = incr
+    write.csv(dfpa,paste(respath,sprintf("dfpa_rad%0.0fm_res_%0.0fm_incr_%0.0fm_cid%d_%s.csv",radius,resolution,incr,cid,habi),sep="/"),row.names=FALSE)
+  }
+
+  ## write to file if at least 1 row!
+  if(nrow(dfla)>1){
+    dfla = dfla[-1,]
+    dfla$cid    = cid
+    dfla$radius = radius
+    dfla$resolution  = resolution
+    dfla$incr   = incr
+    write.csv(dfla,paste(respath,sprintf("dfla_rad%0.0fm_res_%0.0fm_incr_%0.0fm_cid%d_%s.csv",radius,resolution,incr,cid,habi),sep="/"),row.names=FALSE)
+  }
+   
+    
+```
+
+
+For an overview, lets plot the habitat patch network and current moving window of interest:
+
+```{r step5.2}
+########################################
+##JO: only part of the DEMO
+
+## for each pixel in moving window (pid = pixel number), there is an associated value according to function specified in inifile
+print(head(dfpi))
+## for each habitat patch in moving window (pid = patch ID according to hshp shapefile), there is an associated value according to function specified in inifile
+print(head(dfpa))
+## for each moving window landscape (pid = "all" since only 1 value per moving window landcape), there is an associated value according to function specified in inifile
+print(head(dfla))
+## all these data are being written to a csv file, i.e. there is a csv file for each moving window, and level of aggregation (pixel, patch, landscape)
+
+## the associated habitat landscape under consideration is as follows:
+plot(hr[["resistance"]],col=JOcolsr1(100),main="focal moving window (orange)")
+plot(hshp$geometry,col="darkgreen",add=TRUE)
+plot(roi$geometry,add=TRUE,col=NA,border="blue",lwd=2)
+plot(foc1$geometry,add=TRUE,col=adjustcolor("darkorange",alpha.f=0.5))
+plot(shp1$geometry, col="deeppink",add=TRUE)
+
+```
+
+
+
+### 7. Lets run the Reconnect_wrap (includes Reconnect_core) function for all moving windows and scales defined in scaledf!
+
+```{r runReconnect}
+
+for (sci in 1:nrow(scaledf)) {
+  #sci = 1
+  print(sprintf("---Reconnect calculation scale = %d---",sci))
+  #resolution = resolution1; radius = radius1; incr = incr1;
+  resolution = scaledf[sci,"resolution"]
+  radius     = scaledf[sci,"radius"]
+  incr       = scaledf[sci,"incr"]
+  
+Reconnect_wrap(lcr=lcr,lres=lres,roi=roi,cond=cond,respath=respath,resolution=resolution,radius=radius,incr=incr,
+          habi=habi,bufform=bufform,minsizev=minsizev,cutpatches=cutpatches,
+          ncores=ncores,
+          cost_type=cost_type,dist_type=dist_type,trans_fun=trans_fun,neighb=neighb,areafun=areafun,
+          oviewplot=oviewplot,maxnpatch = maxnpatch)
+
+} # sci = scale
+
+```
+
+
+### 8. Run the Reconnect summarize function to aggregate outputs at patch pixel and landscape level
+This function aggregates all data of the moving windows together in order to create landscape mosaics (with the aggregation specified in mosafun).
+
+```{r summres, include=FALSE}
+
+for (sci in 1:nrow(scaledf)) {
+  #sci = 1
+  print(sprintf("---Reconnect summary scale = %d---",sci))
+  #resolution = resolution1; radius = radius1; incr = incr1;
+  resolution = scaledf[sci,"resolution"]
+  radius     = scaledf[sci,"radius"]
+  incr       = scaledf[sci,"incr"]
+  # for aggregation at landscape level, all landscapes where connectivity = NA will be set to 0, unless another replacevalue is set (in case of nearest neighbour distance, values should be set to a maximum possible, such as the diagonal of the moving window squares)
+  winmax  = sqrt(2)*(2*radius) 
+  
+## aggregate all moving window results for the pixel, patch and landscape level
+Reconnect_summary(sourcepath=respath, respath=respath2,habnames=habi,resolution=resolution,radius=radius,incr=incr,
+                        mosafun=base::min,lcr0=lcr, cutpatches=cutpatches,cols=JOcolsr1,varset="NND",valset=winmax)
+
+} # sci = scale
+
+```
+
+### 9. Check results
+Results at pixel and landscape level consist of tif files, results at patch level consist of shapefiles with habitat patches and corresponding patch-values!
+An explanation of all Reconnect functions and connectivity indicators can be accessed on Github in the Documentation (doc) folder: https://github.com/oehrij/Reconnect/blob/main/doc/Reconnect_framework_description_v1.pdf
+
+
+```{r output summary}
+
+files = list.files(respath2)
+print(files)
+
+tifs = files[grep(".tif$",files)]
+shps = files[grep(".shp$",files)]
+
+for(tt in tifs) {
+ print(tt)
+ tres = terra::rast(paste0(respath2,"/",tt))
+ plot(tres)
+ 
+}
+
+for(tt in shps) {
+ print(tt)
+ tres = sf::st_read(paste0(respath2,"/",tt))
+ plot(tres)
+}
+
+```
+
+### 10. Calculate multispecies Connectivity for one landscape using Reconnect_single
+
+```{r Reconnect_simple, include=FALSE}
+### Run the Reconnect function with the Reconnect_inifile (see above) for a single landscape only
+names(lcr) = "habi_test"
+Reconnect_single(cid=names(lcr),lcr=lcr,lres=lres,foc=roi,
+            cond=cond,respath=respath,
+            minsizev=minsizev,cutpatches=cutpatches,
+            cost_type=cost_type,dist_type=dist_type,trans_fun=trans_fun,neighb=neighb,areafun=areafun,
+            maxnpatch = maxnpatch)
+
+```
+```{r Reconnect_single_res}
+
+## look at Reconnect_simple results
+files = list.files(respath)
+tifs = files[grep("^Single.+.tif$",files)]
+shps = files[grep("^Single.+.shp$",files)]
+csvs = files[grep("^Single.+.csv$",files)]
+
+for(tt in tifs) {
+ print(tt)
+ tres = terra::rast(paste0(respath,"/",tt))
+ plot(tres)
+}
+
+for(tt in shps) {
+ print(tt)
+ tres = sf::st_read(paste0(respath,"/",tt))
+ plot(tres)
+}
+
+for(tt in csvs) {
+ print(tt)
+ tres = read.csv(paste0(respath,"/",tt))
+ print(summary(tres))
+}
+
+```
+
+## References
+
+* Albert, C. H., Rayfield, B., Dumitru, M., & Gonzalez, A. (2017). Applying network theory to prioritize multispecies habitat networks that are robust to climate and land-use change. Conservation Biology, 31(6), 1383–1396.
+* Csardi, G., & Nepusz, T. (2006). The igraph software package for complex network research. InterJournal, Complex Systems, 1695.
+* Drielsma, M., & Ferrier, S. (2009). Rapid evaluation of metapopulation persistence in highly variegated landscapes. Biological Conservation, 142(3), 529–540.
+* van Etten, J. (2017). r packagegdistance : distances and routes on geographical grids. Journal of Statistical Software, 76(13).
+* Godínez-Gómez, O. and Correa Ayram C.A. (2020). Makurhini: Analyzing landscape connectivity. Computer software, https://github.com/connectscape/Makurhini.
+* Hartfelder, J., Reynolds, C., Stanton, R. A., Sibiya, M., Monadjem, A., McCleery, R. A., & Fletcher, R. J. (2020). The allometry of movement predicts the connectivity of communities. Proceedings of the National Academy of Sciences of the United States of America, 117(36), 22274–22280.
+* Hesselbarth, M. H. K., Sciaini, M., With, K. A., Wiegand, K., & Nowosad, J. (2019). landscapemetrics : an open‐source R tool to calculate landscape metrics. Ecography.
+* Huang, R., Pimm, S. L., & Giri, C. (2020). Using metapopulation theory for practical conservation of mangrove endemic birds. Conservation Biology, 34(1), 266–275.
+* Hughes, J., Lucet, V., Barrett, G., Moran, S., Manseau, M., Martin, A. E., Naujokaitis-Lewis, I., et al. (2022). Comparison and Parallel Implementation of Alternative Moving-Window Metrics of the Connectivity of Protected Areas Across Large Landscapes. Research square.
+* Hutchinson, M. C., Bramon Mora, B., Pilosof, S., Barner, A. K., Kéfi, S., Thébault, E., Jordano, P., et al. (2018). Seeing the forest for the trees: putting multilayer networks to work for community ecology. Functional Ecology.
+* Koen, E. L., Ellington, E. H., & Bowman, J. (2019). Mapping landscape connectivity for large spatial extents. Landscape Ecology, 34(10), 2421–2433.
+* Liu, C., Newell, G., White, M., & Bennett, A. F. (2018). Identifying wildlife corridors for the restoration of regional habitat connectivity: A multispecies approach and comparison of resistance surfaces. Plos One, 13(11), e0206071.
+* Meurant, M., Gonzalez, A., Doxa, A., & Albert, C. H. (2018). Selecting surrogate species for connectivity conservation. Biological Conservation, 227, 326–334.
+* Pilosof, S., Porter, M. A., Pascual, M., & Kéfi, S. (2017). The multilayer nature of ecological networks. Nature Ecology & Evolution, 1(4), 101.
+* Rayfield, B, Larocque, G., Daniel, C., & Gonzalez, A. (n.d.). Une priorisation pour la conservation des milieux naturels des Basses-Terres du Saint-Laurent en fonction de leur importance pour la connectivité.
+* Rayfield, Bronwyn, Pelletier, D., Dumitru, M., Cardille, J. A., & Gonzalez, A. (2016). Multipurpose habitat networks for short-range and long-range connectivity: a new method combining graph and circuit connectivity. Methods in Ecology and Evolution, 7(2), 222–231.
+* Rezaei, S., Mohammadi, A., Malakoutikhah, S., & Khosravi, R. (2022). Combining multiscale niche modeling, landscape connectivity, and gap analysis to prioritize habitats for conservation of striped hyaena (Hyaena hyaena). Plos One, 17(2), e0260807.
+* Salgueiro, P. A., Valerio, F., Silva, C., Mira, A., Rabaça, J. E., & Santos, S. M. (2021). Multispecies landscape functional connectivity enhances local bird species’ diversity in a highly fragmented landscape. Journal of Environmental Management, 284, 112066.
+* Shahnaseri, G., Hemami, M.-R., Khosravi, R., Malakoutikhah, S., Omidi, M., & Cushman, S. A. (2019). Contrasting use of habitat, landscape elements, and corridors by grey wolf and golden jackal in central Iran. Landscape Ecology, 34(6), 1263–1277.
+* Strimas-Mackey, M., & Brodie, J. F. (2018). Reserve design to optimize the long-term persistence of multiple species. Ecological Applications, 28(5), 1354–1361.
+* Tarabon, S., Bergès, L., Dutoit, T., & Isselin-Nondedeu, F. (2019). Environmental impact assessment of development projects improved by merging species distribution and habitat connectivity modelling. Journal of Environmental Management, 241, 439–449.

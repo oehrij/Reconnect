@@ -1,0 +1,15 @@
+﻿Index;Description;Input_data;Unit_scaling;Organizational_level;Reference
+$\lambda_M$;Metapopulation capacity;habitat distribution map (habitat vs. non-habitat), species-specific dispersal capacity;unitless, not scaled;landscape;2
+$\lambda_i$;Patch importance: Leading eigenvector at position i;habitat distribution map (habitat vs. non-habitat), species-specific dispersal capacity;unitless, not scaled;patch;3
+${I_p}_i$;General estimate of patch importance;habitat distribution map (habitat vs. non-habitat), species-specific dispersal capacity;unitless, not scaled;patch;33
+$\Lambda$;Metapopulation density;habitat distribution map (habitat vs. non-habitat), species-specific dispersal capacity;unit=$\frac{1}{a}$ scaled by a=unit of area;landscape;2
+$C\lambda_{max}$;Capacity relative to potential maximum;habitat distribution map (habitat vs. non-habitat), species-specific dispersal capacity, maximum habitat distribution;unitless, scaled by maximum value;landscape;16
+$C\lambda_{bas}$;Capacity relative to baseline;habitat distribution map (habitat vs. non-habitat), species-specific dispersal capacity, baseline habitat distribution;unitless, scaled by baseline value;landscape;3
+$C\lambda_{min}$;Capacity relative to minimum threshold;habitat distribution map (habitat vs. non-habitat), species-specific dispersal capacity, species-specific value for extinction threshold and/or extinction rateÿ and colonization rate;unitless, scaled by minimum threshold value;landscape;2,30
+$\psi$;Extrapolated persistence time;habitat distribution map (habitat vs. non-habitat), species-specific dispersal capacity, species-specific value for extinction rate and colonization rate;unit=t, where t=unit of time (e.g. years), not scaled;landscape;2
+$\Psi$;Initial occupancy-loss time;habitat distribution map (habitat vs. non-habitat), species-specific dispersal capacity, species-specific value for extinction rate and colonization rate;unit=$\frac{t}{a}$, where t=unit of time, scaled by a=unit of area;landscape;2
+$L$;Potential food-chain length;habitat distribution map (habitat vs. non-habitat), species-specific dispersal capacity, species-specific value for extinction rate, colonization rate and top-down control parameter;unitless, not scaled;landscape;34
+$U_1$;Fraction of empty patches;habitat distribution map (habitat vs. non-habitat), species-specific dispersal capacity, species-specific value for extinction rate and colonization rate;unitless, not scaled;landscape;34
+$\Lambda(x)$;Lacunarity;habitat distribution map (habitat vs. non-habitat), species-specific dispersal capacity;unitless, not scaled;landscape;35
+$\lambda_{REMP}$;REMP-metapopulation capacity;species-specific habitat suitability map (multiple states), short-range and long-range dispersal capacity, minimum viable habitat area;unitless, not scaled;site (grid-cell);30,36,37
+$pi_{REMP}$;REMP-occupancy;species-specific habitat suitability map (multiple states), short-range and long-range dispersal capacity, minimum viable habitat area;unitless, not scaled;site (grid-cell);30,36,37
