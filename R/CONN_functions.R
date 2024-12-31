@@ -721,7 +721,7 @@ centr_igraph = function(x=NULL,id=NULL,resi=NULL,pa=NULL,mdist=NULL,
     ## this can save computing time and highlight central nodes better
     if(MST) {
       ## define weights
-      if(weighted){  graph = igraph::mst(graph=graph,weights=edge_attr(graph, 'weight'))
+      if(weighted){  graph = igraph::mst(graph=graph,weights=igraph::edge_attr(graph, 'weight'))
       } else { weights = igraph::mst(graph=graph) }
     }
 
@@ -732,14 +732,14 @@ centr_igraph = function(x=NULL,id=NULL,resi=NULL,pa=NULL,mdist=NULL,
       ## define cutoff distance for given alpha and dispfun
       cutoffd = bufferdist(alpha=alpha,dispfun=dispfun,prob=cutoffpr)["dist"] %>% as.numeric
       ## remove "isolated" patches
-      iso = which(edge_attr(graph, 'weight')>=cutoffd)
-      if(length(iso)>0) {graph = delete.edges(graph, iso)}
+      iso = which(igraph::edge_attr(graph, 'weight')>=cutoffd)
+      if(length(iso)>0) {graph = igraph::delete_edges(graph, iso)}
     } else if(is.null(cutoffpr)){
       cutoffd = -1
     }
 
     ## define weights
-    if(weighted){ weights = edge_attr(graph, 'weight') } else { weights = NULL }
+    if(weighted){ weights = igraph::edge_attr(graph, 'weight') } else { weights = NULL }
 
     ## calculate metrics..
     ### normalized: Logical scalar, whether to calculate the normalized closeness, i.e. the inverse average distance to all reachable vertices.

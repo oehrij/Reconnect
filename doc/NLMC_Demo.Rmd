@@ -41,7 +41,8 @@ knitr::opts_chunk$set(echo = TRUE)
 parent_dir = dirname(dirname(rstudioapi::getActiveDocumentContext()$path))
 parent_dir = dirname(getwd())
 ## source directory
-sourcedir  = paste0(parent_dir,"/data") 
+sourcedir  = paste0(parent_dir,"/data")
+if(!dir.exists(sourcedir)){dir.create(sourcedir)}
 ## results directory
 resdir     = sourcedir
 ## folder for results outputs

@@ -1,6 +1,6 @@
 "simname","ncs","cid","hab","metric","value"
 "RealLandsTest",20,5,"habitat_a","ta",NA
-"RealLandsTest",20,5,"habitat_a","tna",4189945670313.95
-"RealLandsTest",20,5,"habitat_a","tnpatch",1
-"RealLandsTest",20,5,"habitat_a","tnperim",11218568.7410147
-"RealLandsTest",20,5,"habitat_a","tnndf",0
+"RealLandsTest",20,5,"habitat_a","tna",34257611469.759
+"RealLandsTest",20,5,"habitat_a","tnpatch",3
+"RealLandsTest",20,5,"habitat_a","tnperim",1283316.05820812
+"RealLandsTest",20,5,"habitat_a","tnndf",2710946.26713674

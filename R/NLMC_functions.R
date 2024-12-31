@@ -607,7 +607,7 @@ reallands_gen = function(simname="test",rast=NULL,ncs=100,samplesize=50,overlap=
 
         ### if it is a raster, make a shapefile out of it, to be able to exclude patches below minsize..
         sps1 = stars::st_as_stars(res1) %>% sf::st_as_sf(merge = TRUE)
-        sps1 = sf::st_make_valid(sps1,reason=TRUE)
+        sps1 = sf::st_make_valid(sps1) # JO 31.12.2024: ,reason=TRUE
         names(sps1)[[1]] = "pid"
 
         ### log statistics
